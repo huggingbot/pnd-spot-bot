@@ -316,7 +316,7 @@ async def main() -> None:
     logger.info(msg_to_send)
     telegram_bot.send_message(message=msg_to_send)
 
-    client = await AsyncClient.create(API_KEY, SECRET_KEY, testnet=True)
+    client = await AsyncClient.create(API_KEY, SECRET_KEY, testnet=False)
     await asyncio.gather(run_multiplex_socket(client))
     await client.close_connection()
 
