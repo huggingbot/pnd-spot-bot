@@ -1,19 +1,23 @@
 import logging
+import os
 import time
 from datetime import datetime, timezone
 from typing import Set
 
+from dotenv import load_dotenv
 from telegram import Update
-from telegram.ext import *
+from telegram.ext import CommandHandler, Updater, Dispatcher, MessageHandler, Filters, CallbackContext
 
-from app.bot.models.singleton import Singleton
-from app.bot.models.constants import EMode
-from app.bot.utils.decorators import mode
-from app.core.logging import telegram_logger as logger
+from core.logging import telegram_logger as logger
+from core.singleton import Singleton
+from custom_types.controller_type import EMode
 from settings import TELEGRAM_MODE
-from app.bot.utils.event_emitter import ee, ETelegramEvent
 
-API_KEY = '1945409432:AAFM9Mi-FWKYH4Zj1iNNqscK5nDVYS1Idfc'
+# from utils.event_emitter import ee, ETelegramEvent
+
+load_dotenv()
+TELEGRAM_API_KEY = os.getenv('TELEGRAM_API_KEY')
+DEFAULT_TELEGRAM_NOTIFICATION_ID = os.getenv('DEFAULT_TELEGRAM_NOTIFICATION_ID')
 
 
 class TelegramBot(metaclass=Singleton):
@@ -25,22 +29,18 @@ class TelegramBot(metaclass=Singleton):
     def start_bot(self):
         date = datetime.now(timezone.utc)
         logger.info(f'{date:%Y-%m-%d %H:%M:%S} > START TELEGRAM_BOT')
-        self.updater = Updater(API_KEY, use_context=True)
+        self.updater = Updater(TELEGRAM_API_KEY, use_context=True)
         self.dispatcher = self.updater.dispatcher
 
         # Commands
-        self.dispatcher.add_handler(
-            CommandHandler('start', self.start_command))
+        self.dispatcher.add_handler(CommandHandler('start', self.start_command))
         self.dispatcher.add_handler(CommandHandler('help', self.help_command))
         self.dispatcher.add_handler(CommandHandler('test', self.test_command))
-        self.dispatcher.add_handler(
-            CommandHandler('stats', self.stats_command))
-        self.dispatcher.add_handler(
-            CommandHandler('custom', self.custom_command))
+        self.dispatcher.add_handler(CommandHandler('stats', self.stats_command))
+        self.dispatcher.add_handler(CommandHandler('custom', self.custom_command))
 
         # Messages
-        self.dispatcher.add_handler(MessageHandler(
-            Filters.text, self.handle_message))
+        self.dispatcher.add_handler(MessageHandler(Filters.text, self.handle_message))
 
         # Log all errors
         self.dispatcher.add_error_handler(self.error)
@@ -55,7 +55,7 @@ class TelegramBot(metaclass=Singleton):
         text = str(update.message.text).lower()
         logger.info(f'User ({update.message.chat.id}) says: {text}')
         update.message.reply_text('CHECKING STATS...')
-        ee.emit(ETelegramEvent.STATS, update.message.chat.id)
+        # ee.emit(ETelegramEvent.STATS, update.message.chat.id)
 
     def help_command(self, update, context):
         logger.info(update.message)
@@ -82,10 +82,9 @@ class TelegramBot(metaclass=Singleton):
         # Logs errors
         logger.error(f'Update {update} caused error {context.error}')
 
-    @mode(EMode.PRODUCTION, TELEGRAM_MODE)
-    def send_message(self, chat_id=-1001433775775, message="blank"):
+    def send_message(self, chat_id=DEFAULT_TELEGRAM_NOTIFICATION_ID, message="blank"):
         retry = 0
-        while retry <= 3:
+        while True and TELEGRAM_MODE == EMode.PRODUCTION and retry <= 3:
             try:
                 self.dispatcher.bot.send_message(
                     chat_id=chat_id, text="<pre>" + message + "</pre>", parse_mode="HTML")
@@ -97,12 +96,12 @@ class TelegramBot(metaclass=Singleton):
                 continue
             break
 
-    @mode(EMode.PRODUCTION, TELEGRAM_MODE)
     def run_bot(self):
-        self.updater.start_polling()
+        if TELEGRAM_MODE == EMode.PRODUCTION:
+            self.updater.start_polling()
 
 
-telegram_bot = TelegramBot()
+telegram_bot: TelegramBot = TelegramBot()
 
 if __name__ == '__main__':
     logging.basicConfig(
@@ -110,7 +109,8 @@ if __name__ == '__main__':
     logging.info("start TelegramBot.py")
     telegram_bot: TelegramBot = TelegramBot()
     telegram_bot.start_bot()
+    telegram_bot.run_bot()
     msg = "🦺TEST TELEGRAM"
     telegram_bot.send_message(chat_id=469591760, message=msg)
-    telegram_bot.send_message(chat_id=-1001433775775, message=msg)
+    # telegram_bot.send_message(chat_id=-1001433775775, message=msg)
     logging.info(msg)

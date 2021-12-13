@@ -2,6 +2,9 @@ import os
 from os.path import dirname, abspath
 
 from dotenv import load_dotenv
+
+from custom_types.controller_type import EMode
+
 load_dotenv('.env')
 
 BASE_DIR = dirname(dirname(abspath(__file__)))
@@ -19,3 +22,4 @@ RECORD_SECONDS_TO_KEEP = 3
 RECORD_TARGET_PERCENT_TO_STOP_COPY_BUY = 0.5
 
 DECIMALS = 1
+TELEGRAM_MODE=EMode.PRODUCTION
