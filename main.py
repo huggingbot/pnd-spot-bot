@@ -114,9 +114,13 @@ async def copy_buy_token(client: AsyncClient, data: IAggTradeData, available_cur
 def should_stop_copy_buy(token_stat: ITokenStat) -> bool:
     ordered_dict: Iterable = token_stat['records'].items()
     records: list[tuple[int, float]] = list(ordered_dict)
-
-    last_record_price = records[-1][1]
+    try:
+        last_record_price = records[-1][1]
+    except IndexError:
+        last_record_price = None
     average_bought_price = get_average_bought_price(token_stat)
+    if average_bought_price == 0 or last_record_price is None:
+        average_bought_price = get_average_bought_price(token_stat)
     if average_bought_price == 0:
         increase_in_percent = 0
     else:
