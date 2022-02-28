@@ -47,7 +47,7 @@ def log_pnl(token_stats: dict[str, ITokenStat], token_stat: ITokenStat, order: I
                    f'Last order: {order}\n'
                    f'PNL: ${gain_amount:.4f} ({gain_percent:.4f}%)')
     logger.info(msg_to_send)
-    telegram_bot.send_message(message=msg_to_send)
+    # telegram_bot.send_message(message=msg_to_send)
 
 
 def update_token_stat(token_stat: ITokenStat, order: IOrder) -> ITokenStat:
@@ -62,7 +62,7 @@ def update_token_stat(token_stat: ITokenStat, order: IOrder) -> ITokenStat:
                       'last_order': order}
     msg_to_send = f'Updated token stat: {new_token_stat}'
     logger.info(msg_to_send)
-    telegram_bot.send_message(message=msg_to_send)
+    # telegram_bot.send_message(message=msg_to_send)
     return new_token_stat
 
 
@@ -73,7 +73,7 @@ def update_sl_price(token_stat: ITokenStat, new_token_stat: ITokenStat) -> IToke
     token_price = token_stat['token_price']
     msg_to_send = f"Updating SL price from {token_stat['sl_price']} to {token_price}"
     logger.info(msg_to_send)
-    telegram_bot.send_message(message=msg_to_send)
+    # telegram_bot.send_message(message=msg_to_send)
     new_token_stat.update({'sl_price': token_price})
     return new_token_stat
 
@@ -86,7 +86,7 @@ async def copy_buy_token(client: AsyncClient, data: IAggTradeData, available_cur
     if token_amount_to_buy == 0:
         msg_to_send = f'Will not execute copy buy order: {token_amount_to_buy=}'
         logger.info(msg_to_send)
-        telegram_bot.send_message(message=msg_to_send)
+        # telegram_bot.send_message(message=msg_to_send)
         return None
     msg_to_send = (f'Will execute copy buy order:\n'
                    f'{copy_buy_token_amount=}\n'
@@ -131,7 +131,7 @@ def should_stop_copy_buy(token_stat: ITokenStat) -> bool:
                    f'increase_in_percent (more or eq) RECORD_TARGET_PERCENT_TO_STOP_COPY_BUY; \n'
                    f'{increase_in_percent:.4f} (more or eq) {RECORD_TARGET_PERCENT_TO_STOP_COPY_BUY};')
     logger.info(msg_to_send)
-    telegram_bot.send_message(message=msg_to_send)
+    # telegram_bot.send_message(message=msg_to_send)
     return stop_copy_buy
 
 
@@ -165,7 +165,7 @@ async def process_copy_buy(client: AsyncClient, data: IAggTradeData, token_stat:
                    f'{available_currency} (more than) 0;\n'
                    f'not stop_copy_buy ({not stop_copy_buy});')
     logger.info(msg_to_send)
-    telegram_bot.send_message(message=msg_to_send)
+    # telegram_bot.send_message(message=msg_to_send)
     if has_price_increased_or_maintained and available_currency > 0 and not stop_copy_buy:
         # Copy buy some token to prepare for the pnd
         order = await copy_buy_token(client, data, available_currency)
@@ -191,7 +191,7 @@ async def check_tp_or_sl_target(client: AsyncClient, token_stat: ITokenStat) -> 
     token_quantity = token_stat['token_quantity']
     msg_to_send = f'Check for TP or SL 1: {token_cost=:.4f} {token_quantity=:.4f}'
     logger.info(msg_to_send)
-    telegram_bot.send_message(message=msg_to_send)
+    # telegram_bot.send_message(message=msg_to_send)
     if not token_cost or not token_quantity:
         return None
     token_price = token_stat['token_price']
@@ -203,14 +203,14 @@ async def check_tp_or_sl_target(client: AsyncClient, token_stat: ITokenStat) -> 
         price_change_percent = (token_price - average_bought_price) / average_bought_price
     msg_to_send = f'Check for TP or SL 2: {token_price=} {average_bought_price=} {price_change_percent=:.4f} {sl_price=}'
     logger.info(msg_to_send)
-    telegram_bot.send_message(message=msg_to_send)
+    # telegram_bot.send_message(message=msg_to_send)
 
     if price_change_percent >= TP_TARGET or token_price < sl_price:
         msg_to_send = (f'TP or SL target hit:\n'
                        f'TP: price_change_percent (more or eq) TP_TARGET; {price_change_percent:.4f} (more or eq) {TP_TARGET};\n'
-                       f'SL: token_price (less or eq) sl_price; {token_price} < {sl_price};')
+                       f'SL: token_price (less or eq) sl_price; {token_price} (less or eq) {sl_price};')
         logger.info(msg_to_send)
-        telegram_bot.send_message(message=msg_to_send)
+        # telegram_bot.send_message(message=msg_to_send)
         return await client.order_market_sell(symbol=token_stat['symbol'].upper(),
                                               quantity=math.floor(token_quantity * POW10) / float(POW10))
     return None
@@ -297,16 +297,14 @@ async def run_multiplex_socket(client: AsyncClient) -> None:
     token_stats = None
     bsm = BinanceSocketManager(client)
     agg_trade = [f'{symbol}@aggTrade' for symbol in SYMBOLS]
-
-    logger.info(f"run_multiplex_socket\n {agg_trade}")
     async with bsm.multiplex_socket(agg_trade) as stream:
 
         while True:
             res: IAggTrade = await stream.recv()
             if EStreamType.aggTrade in res['data']['e']:
-                msg_to_send = f"Incoming data: {res['data']}"
-                logger.info(msg_to_send)
-                telegram_bot.send_message(message=msg_to_send)
+                # msg_to_send = f"Incoming data: {res['data']}"
+                # logger.info(msg_to_send)
+                # telegram_bot.send_message(message=msg_to_send)
                 token_stats, has_tp_or_sl = await parse_agg_trade_data(client, res['data'], token_stats)
                 if has_tp_or_sl:
                     # token_stats = await init_token_stats(client)
@@ -320,6 +318,7 @@ async def main() -> None:
     telegram_bot.start_bot()
     telegram_bot.run_bot()
     msg_to_send = (f'starting pnd-spot-bot\n'
+                   f'======================\n'
                    f'{datetime.now(timezone.utc):%Y-%m-%d %H:%M:%S}\n'
                    f'{SYMBOLS=}\n'
                    f'{SUPPORTED_CURRENCIES=}\n'

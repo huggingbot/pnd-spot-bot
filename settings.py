@@ -13,7 +13,7 @@ API_KEY = os.getenv('API_KEY')
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SYMBOLS = ['ucrusdt', 'cartusdt', 'gensusdt']
-SYMBOLS = ['btcusdt']
+SYMBOLS = ['btcusdt', 'ethusdt', 'rsrusdt', 'bakeusdt', 'ksmusdt']
 
 TP_TARGET = 1.0  # Increase from average price (1.0 == 100%)
 COPY_BUY_PERCENT = 0.5  # Amount to copy buy from organizers (1.0 == 100%)

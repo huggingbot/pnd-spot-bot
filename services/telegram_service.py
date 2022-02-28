@@ -1,5 +1,8 @@
 import logging
 import os
+import queue
+import threading
+
 import time
 from datetime import datetime, timezone
 from typing import Set
@@ -18,13 +21,14 @@ from settings import TELEGRAM_MODE
 load_dotenv()
 TELEGRAM_API_KEY = os.getenv('TELEGRAM_API_KEY')
 DEFAULT_TELEGRAM_NOTIFICATION_ID = os.getenv('DEFAULT_TELEGRAM_NOTIFICATION_ID')
-
+my_queue = queue.Queue()
 
 class TelegramBot(metaclass=Singleton):
     dispatcher: Dispatcher
     updater: Updater
     chat_list: Set = set[469591760, 1746016549]
     start_time = datetime.now(timezone.utc)
+    queued_msg_started = False
 
     def start_bot(self):
         date = datetime.now(timezone.utc)
@@ -83,16 +87,38 @@ class TelegramBot(metaclass=Singleton):
         logger.error(f'Update {update} caused error {context.error}')
 
     def send_message(self, chat_id=DEFAULT_TELEGRAM_NOTIFICATION_ID, message="blank"):
+        if TELEGRAM_MODE == EMode.PRODUCTION:
+            item = {"chat_id": chat_id, "message": message}
+            my_queue.put(item)
+
+        # logger.info(f'Remaining in queue: {my_queue.qsize()}')
+        if not self.queued_msg_started:
+            self.queued_msg_started = True
+            my_thread = threading.Thread(target=self.execute_queue)
+            my_thread.start()
+
+    def execute_queue(self):
+        while not my_queue.empty():
+            item = my_queue.get()
+            # logger.info(item)
+            self.send_message_in_queue(item['chat_id'], item['message'])
+            logger.info(f'Remaining in queue: {my_queue.qsize()}')
+            time.sleep(2)
+        self.queued_msg_started = False
+        logger.info(f'End of queue: {my_queue.qsize()}')
+
+    def send_message_in_queue(self, chat_id=DEFAULT_TELEGRAM_NOTIFICATION_ID, message="blank"):
+        sleep = 1
         retry = 0
-        while True and TELEGRAM_MODE == EMode.PRODUCTION and retry <= 3:
+        while True and TELEGRAM_MODE == EMode.PRODUCTION:
             try:
-                self.dispatcher.bot.send_message(
-                    chat_id=chat_id, text="<pre>" + message + "</pre>", parse_mode="HTML")
+                self.dispatcher.bot.send_message(chat_id=chat_id, text="<pre>" + message + "</pre>", parse_mode="HTML")
             except Exception as ex:
-                print(f"TELEGRAM SEND FAILED: {retry}...\n"
+                print(f"TELEGRAM SEND FAILED: {retry}... sleeping for {sleep} second(s)\n"
                       f"{ex}")
-                time.sleep(2)
+                time.sleep(sleep)
                 retry += 1
+                sleep += 2
                 continue
             break
 
