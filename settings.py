@@ -12,7 +12,8 @@ BASE_DIR = dirname(dirname(abspath(__file__)))
 API_KEY = os.getenv('API_KEY')
 SECRET_KEY = os.getenv('SECRET_KEY')
 
-SYMBOLS = ['ucrusdt', 'cartusdt', 'gensusdt']
+# SYMBOLS = ['ucrusdt', 'cartusdt', 'gensusdt']
+SYMBOLS = ['btcusdt']
 
 TP_TARGET = 1.0  # Increase from average price (1.0 == 100%)
 COPY_BUY_PERCENT = 0.5  # Amount to copy buy from organizers (1.0 == 100%)
@@ -22,4 +23,4 @@ RECORD_SECONDS_TO_KEEP = 3
 RECORD_TARGET_PERCENT_TO_STOP_COPY_BUY = 0.5
 
 DECIMALS = 1
-TELEGRAM_MODE=EMode.PRODUCTION
+TELEGRAM_MODE = EMode.PRODUCTION

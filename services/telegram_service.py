@@ -112,5 +112,5 @@ if __name__ == '__main__':
     telegram_bot.run_bot()
     msg = "🦺TEST TELEGRAM"
     telegram_bot.send_message(chat_id=469591760, message=msg)
-    # telegram_bot.send_message(chat_id=-1001433775775, message=msg)
+    # telegram_bot.send_message(chat_id=-1001705426905, message=msg)
     logging.info(msg)

@@ -10,7 +10,7 @@ import binance.exceptions
 from binance import AsyncClient, BinanceSocketManager
 
 from core.logging import logger
-from services.my_telegram import telegram_bot
+from services.telegram_service import telegram_bot
 from settings import API_KEY, SECRET_KEY, SYMBOLS, COPY_BUY_PERCENT, SUPPORTED_CURRENCIES, TP_TARGET, \
     RECORD_SECONDS_TO_KEEP, RECORD_TARGET_PERCENT_TO_STOP_COPY_BUY, DECIMALS
 from typings import EStreamType, IAggTrade, IAggTradeData, IAccountInfo, ITokenStat, IPrice, IBalance, IOrder
@@ -114,6 +114,7 @@ async def copy_buy_token(client: AsyncClient, data: IAggTradeData, available_cur
 def should_stop_copy_buy(token_stat: ITokenStat) -> bool:
     ordered_dict: Iterable = token_stat['records'].items()
     records: list[tuple[int, float]] = list(ordered_dict)
+
     last_record_price = records[-1][1]
     average_bought_price = get_average_bought_price(token_stat)
     if average_bought_price == 0:
@@ -123,8 +124,8 @@ def should_stop_copy_buy(token_stat: ITokenStat) -> bool:
     stop_copy_buy = increase_in_percent >= RECORD_TARGET_PERCENT_TO_STOP_COPY_BUY
     msg_to_send = (f'should_stop_copy_buy ({stop_copy_buy}):\n'
                    f'{records=}\n'
-                   f'increase_in_percent >= RECORD_TARGET_PERCENT_TO_STOP_COPY_BUY; '
-                   f'{increase_in_percent:.4f} >= {RECORD_TARGET_PERCENT_TO_STOP_COPY_BUY};')
+                   f'increase_in_percent (more or eq) RECORD_TARGET_PERCENT_TO_STOP_COPY_BUY; \n'
+                   f'{increase_in_percent:.4f} (more or eq) {RECORD_TARGET_PERCENT_TO_STOP_COPY_BUY};')
     logger.info(msg_to_send)
     telegram_bot.send_message(message=msg_to_send)
     return stop_copy_buy
@@ -155,8 +156,9 @@ async def process_copy_buy(client: AsyncClient, data: IAggTradeData, token_stat:
 
     msg_to_send = (f'process_copy_buy:\n'
                    f'has_price_increased_or_maintained ({has_price_increased_or_maintained}): '
-                   f'new_token_price > token_price; {new_token_price} >= {token_price};\n'
-                   f'available_currency ({available_currency > 0}): available_currency > 0; {available_currency} > 0;\n'
+                   f'new_token_price (more than) token_price; {new_token_price} (more or eq) {token_price};\n'
+                   f'available_currency ({available_currency > 0}): available_currency more than 0;\n'
+                   f'{available_currency} (more than) 0;\n'
                    f'not stop_copy_buy ({not stop_copy_buy});')
     logger.info(msg_to_send)
     telegram_bot.send_message(message=msg_to_send)
@@ -201,8 +203,8 @@ async def check_tp_or_sl_target(client: AsyncClient, token_stat: ITokenStat) -> 
 
     if price_change_percent >= TP_TARGET or token_price < sl_price:
         msg_to_send = (f'TP or SL target hit:\n'
-                       f'TP: price_change_percent >= TP_TARGET; {price_change_percent:.4f} >= {TP_TARGET};\n'
-                       f'SL: token_price <= sl_price; {token_price} < {sl_price};')
+                       f'TP: price_change_percent (more or eq) TP_TARGET; {price_change_percent:.4f} (more or eq) {TP_TARGET};\n'
+                       f'SL: token_price (less or eq) sl_price; {token_price} < {sl_price};')
         logger.info(msg_to_send)
         telegram_bot.send_message(message=msg_to_send)
         return await client.order_market_sell(symbol=token_stat['symbol'].upper(),
@@ -292,7 +294,9 @@ async def run_multiplex_socket(client: AsyncClient) -> None:
     bsm = BinanceSocketManager(client)
     agg_trade = [f'{symbol}@aggTrade' for symbol in SYMBOLS]
 
+    logger.info(f"run_multiplex_socket\n {agg_trade}")
     async with bsm.multiplex_socket(agg_trade) as stream:
+
         while True:
             res: IAggTrade = await stream.recv()
             if EStreamType.aggTrade in res['data']['e']:
@@ -311,12 +315,16 @@ async def run_multiplex_socket(client: AsyncClient) -> None:
 async def main() -> None:
     telegram_bot.start_bot()
     telegram_bot.run_bot()
-    msg_to_send = f'starting pnd-spot-bot {datetime.now(timezone.utc):%Y-%m-%d %H:%M:%S}\n' \
-                  f'{SYMBOLS=}\n{SUPPORTED_CURRENCIES=}\n{TP_TARGET=}\n{COPY_BUY_PERCENT=}'
+    msg_to_send = (f'starting pnd-spot-bot\n'
+                   f'{datetime.now(timezone.utc):%Y-%m-%d %H:%M:%S}\n'
+                   f'{SYMBOLS=}\n'
+                   f'{SUPPORTED_CURRENCIES=}\n'
+                   f'{TP_TARGET=}\n'
+                   f'{COPY_BUY_PERCENT=}')
     logger.info(msg_to_send)
     telegram_bot.send_message(message=msg_to_send)
 
-    client = await AsyncClient.create(API_KEY, SECRET_KEY, testnet=False)
+    client = await AsyncClient.create(API_KEY, SECRET_KEY, testnet=True)
     await asyncio.gather(run_multiplex_socket(client))
     await client.close_connection()
 
